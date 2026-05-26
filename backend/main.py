@@ -3,9 +3,14 @@ import tempfile
 import anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.background import BackgroundTasks
+from fastapi.responses import FileResponse
 from faster_whisper import WhisperModel
 from fastapi.middleware.cors import CORSMiddleware
+from kokoro import KPipeline
+import numpy as np
 from pydantic import BaseModel
+import soundfile as sf
 from typing import List
 
 load_dotenv()
@@ -20,9 +25,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load Whisper model and Anthropic client once on startup
+# Load Whisper model, Anthropic client, and Kokoro TTS model once on startup
+print("Loading models...")
 whisper_model = WhisperModel("large-v3", device="cpu", compute_type="int8")
 anthropic_client = anthropic.Anthropic()
+kokoro_pipeline = KPipeline(lang_code="a")
+print("Models loaded successfully.")
 
 INTERVIEWER_SYSTEM_PROMPT = """
 You are a senior software engineer conducting a technical interview. 
@@ -63,19 +71,23 @@ async def transcribe_audio(
     audio: UploadFile = File(...),
     problem_context: str = Form("")
 ):
+    # Get audio bytes
     audio_bytes = await audio.read()
 
+    # Create temp file of the audio
     with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
         tmp.write(audio_bytes)
         tmp_path = tmp.name
     
     try:
+        # Get generator of transcribed segments
         segments, _ = whisper_model.transcribe(
             tmp_path,
             initial_prompt=problem_context,
             language="en",
         )
 
+        # Join all segments together
         transcript = " ".join(segment.text for segment in segments).strip()
 
         return {"transcript": transcript}
@@ -99,6 +111,7 @@ async def chat(request: ChatRequest):
         # Prepend problem description to the system prompt
         full_system_prompt = f"{INTERVIEWER_SYSTEM_PROMPT}\n\n[Problem description:]\n{request.problem_description}"
 
+        # Send message to claude and get response
         response = anthropic_client.messages.create(
             model = "claude-sonnet-4-6",
             max_tokens = 1024,
@@ -106,6 +119,7 @@ async def chat(request: ChatRequest):
             messages = messages_for_claude
         )
 
+        # Get text of response
         reply = response.content[0].text
 
         # Check if the interview is complete
@@ -118,3 +132,28 @@ async def chat(request: ChatRequest):
             "reply": cleaned_reply,
             "interview_complete": interview_complete
         }
+    
+@app.post("/speak")
+async def speak(text: dict, background_tasks: BackgroundTasks):
+    audio_segments = []
+    
+    # Append all audio segments from the pipeline
+    for _, _, audio in kokoro_pipeline(text["text"], voice="af_heart", speed=1.0):
+        audio_segments.append(audio)
+    
+    # Concatenate all segments together into one array
+    full_audio = np.concatenate(audio_segments)
+
+    # Write the audio to a temp file as WAV
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        sf.write(tmp.name, full_audio, samplerate=24000)
+        tmp_path = tmp.name
+    
+    #Schedule deletion to happen after the response is fully sent
+    background_tasks.add_task(os.unlink, tmp_path)
+    
+    return FileResponse(
+        tmp_path,
+        media_type="audio/wav",
+        filename="speech.wav"
+    )
