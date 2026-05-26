@@ -134,33 +134,33 @@ async def chat(request: ChatRequest):
         
         messages_for_claude.append({"role": msg.role, "content": content})
 
-        # Prepend problem description to the system prompt
-        full_system_prompt = (
-            f"{INTERVIEWER_SYSTEM_PROMPT}\n\n"
-            f"[Problem description:]\n{request.problem_description}"
-        )
+    # Prepend problem description to the system prompt
+    full_system_prompt = (
+        f"{INTERVIEWER_SYSTEM_PROMPT}\n\n"
+        f"[Problem description:]\n{request.problem_description}"
+    )
 
-        # Send message to claude and get response
-        response = anthropic_client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
-            system=full_system_prompt,
-            messages=messages_for_claude
-        )
+    # Send message to claude and get response
+    response = anthropic_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=full_system_prompt,
+        messages=messages_for_claude
+    )
 
-        # Get text of response
-        reply = response.content[0].text
+    # Get text of response
+    reply = response.content[0].text
 
-        # Check if the interview is complete
-        interview_complete = "[INTERVIEW_COMPLETE]" in reply
+    # Check if the interview is complete
+    interview_complete = "[INTERVIEW_COMPLETE]" in reply
 
-        # Remove the token from the reply before sending it back to the frontend
-        cleaned_reply = reply.replace("[INTERVIEW_COMPLETE]", "").strip()
+    # Remove the token from the reply before sending it back to the frontend
+    cleaned_reply = reply.replace("[INTERVIEW_COMPLETE]", "").strip()
 
-        return {
-            "reply": cleaned_reply,
-            "interview_complete": interview_complete
-        }
+    return {
+        "reply": cleaned_reply,
+        "interview_complete": interview_complete
+    }
     
 @app.post("/speak")
 async def speak(text: dict, background_tasks: BackgroundTasks):
