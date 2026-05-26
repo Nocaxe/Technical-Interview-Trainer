@@ -5,3 +5,4 @@ faster-whisper
 kokoro
 anthropic
 python-dotenv
+soundfile
