@@ -108,6 +108,7 @@ async def transcribe_audio(
             tmp_path,
             initial_prompt=problem_context,
             language="en",
+            vad_filter=True,
         )
 
         # Join all segments together
@@ -149,7 +150,7 @@ async def chat(request: ChatRequest):
     )
 
     # Get text of response
-    reply = response.content[0].text
+    reply = response.content[0].text # type: ignore
 
     # Check if the interview is complete
     interview_complete = "[INTERVIEW_COMPLETE]" in reply
@@ -208,4 +209,4 @@ async def debrief(request: DebriefRequest):
         messages=[{"role": "user", "content": message_for_claude}]
     )
 
-    return {"debrief": response.content[0].text}
+    return {"debrief": response.content[0].text} # type: ignore
