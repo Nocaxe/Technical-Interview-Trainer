@@ -23,7 +23,7 @@ export default function DebriefScreen({ problem, history, finalCode, onRestart }
     }
 
     fetchDebrief();
-  }, []);
+  }, [finalCode, history, problem.description, problem.title]);
 
   if (status === "loading") {
     return (
