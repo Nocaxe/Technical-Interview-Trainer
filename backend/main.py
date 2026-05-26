@@ -53,6 +53,24 @@ Your behavioral rules:
   and end your message with the exact token: [INTERVIEW_COMPLETE]
 """
 
+DEBRIEF_SYSTEM_PROMPT = """
+You are an experienced software engineering mentor reviewing a completed mock interview.
+You have the full transcript of the session and the candidate's final code.
+
+Produce a structured debrief covering exactly these five areas:
+
+1. **Solution Correctness** — Did the final code solve the problem? 
+   Were there bugs or missed edge cases?
+2. **Time & Space Complexity** — What is the Big-O complexity of their 
+   solution? Did they analyse it correctly? Was there a more optimal approach they missed?
+3. **Communication** — Did they explain their thinking clearly as they coded?
+   Did they ask good clarifying questions at the start?
+4. **What Went Well** — Be specific. Generic praise isn't useful.
+5. **Top Areas to Improve** — Concrete, actionable, prioritized.
+
+Be honest and direct. The goal is growth, not comfort.
+"""
+
 class Message(BaseModel):
     role: str
     content: str
@@ -62,8 +80,13 @@ class ChatRequest(BaseModel):
     current_code: str
     problem_description: str
 
+class DebriefRequest(BaseModel):
+    messages: List[Message]
+    final_code: str
+    problem_description: str
+
 @app.get("/health")
-def health_check():
+async def health_check():
     return {"status": "ok"}
 
 @app.post("/transcribe")
@@ -102,21 +125,27 @@ async def chat(request: ChatRequest):
     for i, msg in enumerate(request.messages):
         # Append code snapshot on the final user message
         if i == len(request.messages) - 1 and msg.role == "user":
-            content = f"{msg.content}\n\n[Current code in editor:]\n{request.current_code}"
+            content = (
+                f"{msg.content}\n\n"
+                f"[Current code in editor:]\n{request.current_code}"
+            )
         else:
             content = msg.content
         
         messages_for_claude.append({"role": msg.role, "content": content})
 
         # Prepend problem description to the system prompt
-        full_system_prompt = f"{INTERVIEWER_SYSTEM_PROMPT}\n\n[Problem description:]\n{request.problem_description}"
+        full_system_prompt = (
+            f"{INTERVIEWER_SYSTEM_PROMPT}\n\n"
+            f"[Problem description:]\n{request.problem_description}"
+        )
 
         # Send message to claude and get response
         response = anthropic_client.messages.create(
-            model = "claude-sonnet-4-6",
-            max_tokens = 1024,
-            system = full_system_prompt,
-            messages = messages_for_claude
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=full_system_prompt,
+            messages=messages_for_claude
         )
 
         # Get text of response
@@ -157,3 +186,26 @@ async def speak(text: dict, background_tasks: BackgroundTasks):
         media_type="audio/wav",
         filename="speech.wav"
     )
+
+@app.post("/debrief")
+async def debrief(request: DebriefRequest):
+    conversation_text = "\n".join(
+        f"{msg.role.upper()}: {msg.content}"
+        for msg in request.messages
+    )
+
+    message_for_claude = (
+        f"Problem Description:\n{request.problem_description}\n\n"
+        f"Full interview transcript:\n{conversation_text}\n\n"
+        f"Candidate's final code:\n```\n{request.final_code}\n```\n\n"
+        f"Please provide the structured debrief."
+    )
+
+    response = anthropic_client.messages.create(
+        model = "claude-sonnet-4-6",
+        max_tokens=2048,
+        system=DEBRIEF_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": message_for_claude}]
+    )
+
+    return {"debrief": response.content[0].text}
