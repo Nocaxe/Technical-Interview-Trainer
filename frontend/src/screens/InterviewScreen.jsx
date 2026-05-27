@@ -153,7 +153,12 @@ export default function InterviewScreen({ problem, onFinish}) {
     const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
     const formData = new FormData();
     formData.append("audio", audioBlob, "recording.webm");
-    formData.append("problem_context", problem.title);
+    const CS_VOCAB = "array, string, hash map, set, stack, queue, binary tree, linked list, " +
+      "graph, matrix, dynamic programming, recursion, memoization, greedy, backtracking, " +
+      "time complexity, space complexity, Big O, O(n), O(log n), O(n squared), " +
+      "two pointers, sliding window, binary search, depth-first search, breadth-first search, " +
+      "prefix sum, monotonic stack, union find, topological sort";
+    formData.append("problem_context", `${problem.title}\n\n${problem.description}\n\n${CS_VOCAB}`);
 
     try {
       const transcribeResponse = await axios.post(`${API_BASE}/transcribe`, formData);
