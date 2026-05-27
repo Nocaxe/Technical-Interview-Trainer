@@ -29,7 +29,7 @@ app.add_middleware(
 print("Loading models...")
 whisper_model = WhisperModel("large-v3", device="cpu", compute_type="int8")
 anthropic_client = anthropic.Anthropic()
-kokoro_pipeline = KPipeline(lang_code="a")
+kokoro_pipeline = KPipeline(lang_code="a", device="cpu")
 print("Models loaded successfully.")
 
 INTERVIEWER_SYSTEM_PROMPT = """
