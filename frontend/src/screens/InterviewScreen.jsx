@@ -269,7 +269,7 @@ export default function InterviewScreen({ problem, onFinish}) {
           <PanelGroup orientation="vertical" className="h-full">
 
             {/* Problem description */}
-            <Panel defaultSize={25} minSize={10}>
+            <Panel defaultSize={200} minSize={10}>
               <div className="h-full px-4 py-3 bg-gray-900 border-b border-gray-700 overflow-y-auto">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Problem</p>
                 <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
