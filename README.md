@@ -33,7 +33,7 @@ There are three stages:
 
 ## Setup
 
-You'll need 3.10<=Python<=3.12 and Node 18+ installed before starting.
+You'll need 3.10 <= Python < 3.13 and Node 18+ installed before starting.
 
 **Backend**
 
